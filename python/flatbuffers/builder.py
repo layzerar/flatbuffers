@@ -92,7 +92,7 @@ class Builder(object):
         The internal buffer is grown as needed.
         """
 
-        if not (0 <= initialSize < (2**UOffsetTFlags.bytewidth - 1)):
+        if not (0 <= initialSize < SOffsetTFlags.max_val):
             msg = "flatbuffers: Cannot create Builder larger than 2 gigabytes."
             raise BuilderSizeError(msg)
 
