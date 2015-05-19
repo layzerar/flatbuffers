@@ -661,7 +661,7 @@ static void GenStruct(const StructDef &struct_def,
                       StructDef *root_struct_def) {
   if (struct_def.generated) return;
 
-  GenComment(struct_def.doc_comment, code_ptr, nullptr);
+  GenComment(struct_def.doc_comment, code_ptr, nullptr, "# ");
   BeginClass(struct_def, code_ptr);
   if (&struct_def == root_struct_def) {
     // Generate a special accessor for the table that has been declared as
