@@ -736,15 +736,20 @@ static void GenStruct(const LanguageParameters &lang, const Parser &parser,
            it != struct_def.fields.vec.end(); ++it) {
         auto &field = **it;
         if (field.deprecated) continue;
+        std::string arg_type = GenTypeForUser(
+          lang, DestinationType(lang, field.value.type, false));
         code += ",\n      ";
-        code += GenTypeForUser(lang,
-                               DestinationType(lang, field.value.type, false));
+        code += arg_type;
         code += " ";
         code += field.name;
         // Java doesn't have defaults, which means this method must always
         // supply all arguments, and thus won't compile when fields are added.
         if (lang.language != GeneratorOptions::kJava) {
-          code += " = " + GenDefaultValue(field.value);
+          code += " = ";
+          if (IsScalar(field.value.type.base_type)) {
+            code += "(" + arg_type + ")";
+          }
+          code += GenDefaultValue(field.value);
         }
       }
       code += ") {\n    builder.";
