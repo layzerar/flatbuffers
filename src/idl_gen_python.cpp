@@ -663,11 +663,15 @@ static void GenStruct(const StructDef &struct_def,
 
   GenComment(struct_def.doc_comment, code_ptr, nullptr, "# ");
   BeginClass(struct_def, code_ptr);
-  if (&struct_def == root_struct_def) {
+  if (!struct_def.fixed) {
     // Generate a special accessor for the table that has been declared as
     // the root type.
     NewRootTypeFromBuffer(struct_def, code_ptr);
   }
+
+  if (&struct_def == root_struct_def) {
+  }
+
   // Generate the Init method that sets the field in a pre-existing
   // accessor object. This is to allow object reuse.
   InitializeExisting(struct_def, code_ptr);
