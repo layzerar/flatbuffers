@@ -752,10 +752,10 @@ def make_monster_from_generated_code():
     ''' Use generated code to build the example Monster. '''
 
     b = flatbuffers.Builder(0)
-    string = b.CreateString("MyMonster")
-    test1 = b.CreateString("test1")
-    test2 = b.CreateString("test2")
-    fred = b.CreateString("Fred")
+    string = b.CreateString(b"MyMonster")
+    test1 = b.CreateString(b"test1")
+    test2 = b.CreateString(b"test2")
+    fred = b.CreateString(b"Fred")
 
     Monster.MonsterStartInventoryVector(b, 5)
     b.PrependByte(4)
@@ -805,7 +805,7 @@ def make_monster_from_generated_code_with_dump_order():
     b = flatbuffers.Builder(0)
 
     Monster.MonsterStart(b)
-    fred = b.CreateString("Fred")
+    fred = b.CreateString(b"Fred")
     Monster.MonsterAddName(b, fred)
     mon2 = Monster.MonsterEnd(b)
 
@@ -823,8 +823,8 @@ def make_monster_from_generated_code_with_dump_order():
     test4 = b.EndVector(2)
 
     Monster.MonsterStartTestarrayofstringVector(b, 2)
-    test2 = b.CreateString("test2")
-    test1 = b.CreateString("test1")
+    test2 = b.CreateString(b"test2")
+    test1 = b.CreateString(b"test1")
     b.PrependUOffsetTRelative(test2)
     b.PrependUOffsetTRelative(test1)
     testArrayOfString = b.EndVector(2)
@@ -835,7 +835,7 @@ def make_monster_from_generated_code_with_dump_order():
     Monster.MonsterAddPos(b, pos)
 
     Monster.MonsterAddHp(b, 80)
-    string = b.CreateString("MyMonster")
+    string = b.CreateString(b"MyMonster")
     Monster.MonsterAddName(b, string)
     Monster.MonsterAddInventory(b, inv)
     Monster.MonsterAddTestType(b, 1)
@@ -853,17 +853,17 @@ def dump_monster_from_generated_code():
     ''' Use generated code to build the example Monster. '''
     b = flatbuffers.Builder(0)
 
-    test = Monster.Monster.CreateObject(b, {'name': "Fred"}, finished=False)
+    test = Monster.Monster.CreateObject(b, {'name': b"Fred"}, finished=False)
     d = {
         'pos': {'x': 1.0, 'y': 2.0, 'z': 3.0, 'test1': 3.0, 'test2': 2,
                 'test3': {'a': 5, 'b': 6}},
         'hp': 80,
-        'name': "MyMonster",
+        'name': b"MyMonster",
         'inventory': [4, 3, 2, 1, 0],
         'test_type': 1,
         'test': test,
         'test4': [{'a': 10, 'b': 20}, {'a': 30, 'b': 40}],
-        'testarrayofstring': ["test2", "test1"]
+        'testarrayofstring': [b"test2", b"test1"]
     }
     Monster.Monster.CreateObject(b, d)
 
@@ -1456,7 +1456,7 @@ def backward_compatible_run_tests(**kwargs):
                 return False
         return True
 
-    # python2.7 and above let us not exit once unittest.main is run: 
+    # python2.7 and above let us not exit once unittest.main is run:
     kwargs['exit'] = False
     kwargs['verbosity'] = 0
     ret = unittest.main(**kwargs)

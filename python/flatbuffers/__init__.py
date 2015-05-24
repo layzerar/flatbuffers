@@ -15,4 +15,8 @@
 from .encode import *
 from .properties import *
 from .table import Table
-from .builder import Builder
+
+try:
+    from .fastcodec import FastBuilder as Builder
+except ImportError:
+    from .builder import Builder

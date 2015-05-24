@@ -20,47 +20,12 @@ from . import packer
 
 from . import compat
 from .compat import range_func
-
-
-class OffsetArithmeticError(RuntimeError):
-    """
-    Error caused by an Offset arithmetic error. Probably caused by bad
-    writing of fields. This is considered an unreachable situation in
-    normal circumstances.
-    """
-    pass
-
-
-class NotInObjectError(RuntimeError):
-    """
-    Error caused by using a Builder to write Object data when not inside
-    an Object.
-    """
-    pass
-
-
-class ObjectIsNestedError(RuntimeError):
-    """
-    Error caused by using a Builder to begin an Object when an Object is
-    already being built.
-    """
-    pass
-
-
-class StructIsNotInlineError(RuntimeError):
-    """
-    Error caused by using a Builder to write a Struct at a location that
-    is not the current Offset.
-    """
-    pass
-
-
-class BuilderSizeError(RuntimeError):
-    """
-    Error caused by causing a Builder to exceed the hardcoded limit of 2
-    gigabytes.
-    """
-    pass
+from .exceptions import (
+    OffsetArithmeticError,
+    NotInObjectError,
+    ObjectIsNestedError,
+    StructIsNotInlineError,
+    BuilderSizeError)
 
 
 # VtableMetadataFields is the count of metadata fields in each vtable.
