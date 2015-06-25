@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <type_traits>
@@ -272,6 +273,8 @@ public:
     return IndirectHelper<T>::Read(Data(), i);
   }
 
+  return_type operator[](uoffset_t i) const { return Get(i); }
+
   // If this is a Vector of enums, T will be its storage type, not the enum
   // type. This function makes it convenient to retrieve value with enum
   // type E.
@@ -286,13 +289,13 @@ public:
   iterator begin() { return iterator(Data(), 0); }
   const_iterator begin() const { return const_iterator(Data(), 0); }
 
-  iterator end() { return iterator(Data(), length_); }
-  const_iterator end() const { return const_iterator(Data(), length_); }
+  iterator end() { return iterator(Data(), size()); }
+  const_iterator end() const { return const_iterator(Data(), size()); }
 
   // Change elements if you have a non-const pointer to this object.
   void Mutate(uoffset_t i, T val) {
     assert(i < size());
-    WriteScalar(Data() + i * sizeof(T), val);
+    WriteScalar(data() + i, val);
   }
 
   // The raw data in little endian format. Use with care.
@@ -304,29 +307,21 @@ public:
     return reinterpret_cast<uint8_t *>(&length_ + 1);
   }
 
+  // Similarly, but typed, much like std::vector::data
+  const T *data() const { return reinterpret_cast<const T *>(Data()); }
+  T *data() { return reinterpret_cast<T *>(Data()); }
+
   template<typename K> return_type LookupByKey(K key) const {
-    auto span = size();
-    uoffset_t start = 0;
-    // Perform binary search for key.
-    while (span) {
-      // Compare against middle element of current span.
-      auto middle = span / 2;
-      auto table = Get(start + middle);
-      auto comp = table->KeyCompareWithValue(key);
-      if (comp > 0) {
-        // Greater than. Adjust span and try again.
-        span = middle;
-      } else if (comp < 0) {
-        // Less than. Adjust span and try again.
-        middle++;
-        start += middle;
-        span -= middle;
-      } else {
-        // Found element.
-        return table;
-      }
+    void *search_result = std::bsearch(&key, Data(), size(),
+        IndirectHelper<T>::element_stride, KeyCompare<K>);
+
+    if (!search_result) {
+      return nullptr;  // Key not found.
     }
-    return nullptr;  // Key not found.
+
+    const uint8_t *data = reinterpret_cast<const uint8_t *>(search_result);
+
+    return IndirectHelper<T>::Read(data, 0);
   }
 
 protected:
@@ -335,6 +330,17 @@ protected:
   Vector();
 
   uoffset_t length_;
+
+private:
+  template<typename K> static int KeyCompare(const void *ap, const void *bp) {
+    const K *key = reinterpret_cast<const K *>(ap);
+    const uint8_t *data = reinterpret_cast<const uint8_t *>(bp);
+    auto table = IndirectHelper<T>::Read(data, 0);
+
+    // std::bsearch compares with the operands transposed, so we negate the
+    // result here.
+    return -table->KeyCompareWithValue(*key);
+  }
 };
 
 // Convenient helper function to get the length of any vector, regardless
@@ -345,6 +351,7 @@ template<typename T> static inline size_t VectorLength(const Vector<T> *v) {
 
 struct String : public Vector<char> {
   const char *c_str() const { return reinterpret_cast<const char *>(Data()); }
+  std::string str() const { return c_str(); }
 
   bool operator <(const String &o) const {
     return strcmp(c_str(), o.c_str()) < 0;
@@ -509,6 +516,10 @@ class FlatBufferBuilder FLATBUFFERS_FINAL_CLASS {
 
   // Get the released pointer to the serialized buffer.
   // Don't attempt to use this FlatBufferBuilder afterwards!
+  // The unique_ptr returned has a special allocator that knows how to
+  // deallocate this pointer (since it points to the middle of an allocation).
+  // Thus, do not mix this pointer with other unique_ptr's, or call release() /
+  // reset() on it.
   unique_ptr_t ReleaseBufferPointer() { return buf_.release(); }
 
   void ForceDefaults(bool fd) { force_defaults_ = fd; }
@@ -754,7 +765,7 @@ class FlatBufferBuilder FLATBUFFERS_FINAL_CLASS {
   }
 
   template<typename T> Offset<Vector<Offset<T>>> CreateVectorOfSortedTables(
-                                                            std::vector<T> *v) {
+                                                    std::vector<Offset<T>> *v) {
     return CreateVectorOfSortedTables(v->data(), v->size());
   }
 
@@ -1016,6 +1027,8 @@ class Table {
     WriteScalar(data_ + field_offset, val);
     return true;
   }
+
+  uint8_t *GetVTable() { return data_ - ReadScalar<soffset_t>(data_); }
 
   bool CheckField(voffset_t field) const {
     return GetOptionalFieldOffset(field) != 0;
