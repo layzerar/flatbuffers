@@ -379,8 +379,8 @@ static std::string SourceCast(const LanguageParameters &lang,
         else if (type.base_type == BASE_TYPE_UCHAR) return "(byte)";
         break;
       case GeneratorOptions::kCSharp:
-        if (type.enum_def != nullptr && 
-            type.base_type != BASE_TYPE_UNION) 
+        if (type.enum_def != nullptr &&
+            type.base_type != BASE_TYPE_UNION)
           return "(" + GenTypeGet(lang, type) + ")";
         break;
       default:
@@ -507,7 +507,7 @@ static std::string GenSetter(const LanguageParameters &lang,
                              const Type &type) {
   if (IsScalar(type.base_type)) {
     std::string setter = "bb." + FunctionStart(lang, 'P') + "ut";
-    if (GenTypeBasic(lang, type) != "byte" && 
+    if (GenTypeBasic(lang, type) != "byte" &&
         type.base_type != BASE_TYPE_BOOL) {
       setter += MakeCamel(GenTypeGet(lang, type));
     }
@@ -801,14 +801,14 @@ static void GenStruct(const LanguageParameters &lang, const Parser &parser,
       auto mutator_prefix = MakeCamel("mutate", lang.first_camel_upper);
       //a vector mutator also needs the index of the vector element it should mutate
       auto mutator_params = (field.value.type.base_type == BASE_TYPE_VECTOR ? "(int j, " : "(") +
-                            GenTypeNameDest(lang, underlying_type) + " " + 
+                            GenTypeNameDest(lang, underlying_type) + " " +
                             field.name + ") { ";
       auto setter_index = field.value.type.base_type == BASE_TYPE_VECTOR
                     ? "__vector(o) + j * " + NumToString(InlineSize(underlying_type))
                     : (struct_def.fixed ? "bb_pos + " + NumToString(field.value.offset) : "o + bb_pos");
-      
 
-      if (IsScalar(field.value.type.base_type) || 
+
+      if (IsScalar(field.value.type.base_type) ||
           (field.value.type.base_type == BASE_TYPE_VECTOR &&
           IsScalar(field.value.type.VectorType().base_type))) {
         code += "  public ";
@@ -865,20 +865,26 @@ static void GenStruct(const LanguageParameters &lang, const Parser &parser,
         auto &field = **it;
         if (field.deprecated) continue;
         code += ",\n      ";
-        code += GenTypeForUser(lang,
-                               DestinationType(lang, field.value.type, false));
+        code += GenTypeForUser(
+          lang, DestinationType(lang, field.value.type, false));
         code += " ";
         code += field.name;
         // Java doesn't have defaults, which means this method must always
         // supply all arguments, and thus won't compile when fields are added.
         if (lang.language != GeneratorOptions::kJava) {
           code += " = ";
-          // in C#, enum values have their own type, so we need to cast the
-          // numeric value to the proper type
-          if (lang.language == GeneratorOptions::kCSharp &&
-            field.value.type.enum_def != nullptr &&
-            field.value.type.base_type != BASE_TYPE_UNION) {
-            code += "(" + field.value.type.enum_def->name + ")";
+          if (lang.language == GeneratorOptions::kCSharp) {
+            if (field.value.type.enum_def != nullptr &&
+                field.value.type.base_type != BASE_TYPE_UNION) {
+              // in C#, enum values have their own type, so we need to cast the
+              // numeric value to the proper type
+              code += "(" + field.value.type.enum_def->name + ")";
+            } else if (IsScalar(field.value.type.base_type)) {
+              code += "(";
+              code += GenTypeForUser(
+                lang, DestinationType(lang, field.value.type, false));
+              code += ")";
+            }
           }
           code += GenDefaultValue(lang, field.value, false);
         }
