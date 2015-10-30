@@ -338,6 +338,67 @@ static void EndBuilderBody(std::string *code_ptr) {
   code += "    return builder.Offset()\n";
 }
 
+// Gen the creator function signature..
+static void TableKeywordBuilderArgs(const StructDef &struct_def,
+                                    std::string *code_ptr) {
+  std::string &code = *code_ptr;
+
+  code += "\n";
+  code += "def Create" + struct_def.name;
+  code += "(builder";
+
+  for (auto it = struct_def.fields.vec.begin();
+       it != struct_def.fields.vec.end(); ++it) {
+    auto &field = **it;
+    if (field.deprecated) {
+      continue;
+    }
+    code += ",\n" + Indent + Indent;
+    code += MakeCamel(field.name, false);
+    code += "=None";
+  }
+
+  code += "):\n";
+}
+
+// Recursively generate table construction statements.
+static void TableKeywordBuilderBody(const StructDef &struct_def,
+                                    std::string *code_ptr) {
+  std::string &code = *code_ptr;
+
+  code += Indent + "builder.StartObject(";
+  code += NumToString(struct_def.fields.vec.size());
+  code += ")\n";
+
+  for (auto it = struct_def.fields.vec.begin();
+     it != struct_def.fields.vec.end(); ++it) {
+    auto &field = **it;
+    if (field.deprecated) {
+      continue;
+    }
+    auto offset = it - struct_def.fields.vec.begin();
+
+    code += Indent + "if ";
+    code += MakeCamel(field.name, false);
+    code += " is not None:\n";
+    if (IsStruct(field.value.type)) {
+      code += Indent + Indent + "from .";
+      code += TypeName(field) + " import Create" + TypeName(field) + "\n";
+      code += Indent + Indent + MakeCamel(field.name, false);
+      code += " = Create" + TypeName(field) + "(builder, *";
+      code += MakeCamel(field.name, false) + ")\n";
+    }
+    code += Indent + Indent + "builder.Prepend";
+    code += GenMethod(field) + "Slot(";
+    code += NumToString(offset) + ", ";
+    code += MakeCamel(field.name, false);
+    code += ", " + field.value.constant;
+    code += ")\n";
+  }
+
+  code += Indent + "return builder.EndObject()\n\n";
+}
+
 // Get the value of a table's starting offset.
 static void GetStartOfTable(const StructDef &struct_def,
                             std::string *code_ptr) {
@@ -443,6 +504,13 @@ static void GenStructAccessor(const StructDef &struct_def,
   }
 }
 
+// Generate table keyword constructor, conditioned on its members' types.
+static void GenTableKeywordBuilder(const StructDef &struct_def,
+                                   std::string *code_ptr) {
+  TableKeywordBuilderArgs(struct_def, code_ptr);
+  TableKeywordBuilderBody(struct_def, code_ptr);
+}
+
 // Generate table constructors, conditioned on its members' types.
 static void GenTableBuilders(const StructDef &struct_def,
                              std::string *code_ptr) {
@@ -494,6 +562,7 @@ static void GenStruct(const StructDef &struct_def,
     GenStructBuilder(struct_def, code_ptr);
   } else {
     // Create a set of functions that allow table construction.
+    GenTableKeywordBuilder(struct_def, code_ptr);
     GenTableBuilders(struct_def, code_ptr);
   }
 }

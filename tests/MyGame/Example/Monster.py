@@ -4,6 +4,7 @@
 
 import flatbuffers
 
+# /// an example documentation comment: monster object
 class Monster(object):
     __slots__ = ['_tab']
 
@@ -247,6 +248,85 @@ class Monster(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+
+def CreateMonster(builder,
+        pos=None,
+        mana=None,
+        hp=None,
+        name=None,
+        inventory=None,
+        color=None,
+        testType=None,
+        test=None,
+        test4=None,
+        testarrayofstring=None,
+        testarrayoftables=None,
+        enemy=None,
+        testnestedflatbuffer=None,
+        testempty=None,
+        testbool=None,
+        testhashs32Fnv1=None,
+        testhashu32Fnv1=None,
+        testhashs64Fnv1=None,
+        testhashu64Fnv1=None,
+        testhashs32Fnv1a=None,
+        testhashu32Fnv1a=None,
+        testhashs64Fnv1a=None,
+        testhashu64Fnv1a=None,
+        testarrayofbools=None):
+    builder.StartObject(25)
+    if pos is not None:
+        from .Vec3 import CreateVec3
+        pos = CreateVec3(builder, *pos)
+        builder.PrependStructSlot(0, pos, 0)
+    if mana is not None:
+        builder.PrependInt16Slot(1, mana, 150)
+    if hp is not None:
+        builder.PrependInt16Slot(2, hp, 100)
+    if name is not None:
+        builder.PrependUOffsetTRelativeSlot(3, name, 0)
+    if inventory is not None:
+        builder.PrependUOffsetTRelativeSlot(5, inventory, 0)
+    if color is not None:
+        builder.PrependInt8Slot(6, color, 8)
+    if testType is not None:
+        builder.PrependUint8Slot(7, testType, 0)
+    if test is not None:
+        builder.PrependUOffsetTRelativeSlot(8, test, 0)
+    if test4 is not None:
+        builder.PrependUOffsetTRelativeSlot(9, test4, 0)
+    if testarrayofstring is not None:
+        builder.PrependUOffsetTRelativeSlot(10, testarrayofstring, 0)
+    if testarrayoftables is not None:
+        builder.PrependUOffsetTRelativeSlot(11, testarrayoftables, 0)
+    if enemy is not None:
+        builder.PrependUOffsetTRelativeSlot(12, enemy, 0)
+    if testnestedflatbuffer is not None:
+        builder.PrependUOffsetTRelativeSlot(13, testnestedflatbuffer, 0)
+    if testempty is not None:
+        builder.PrependUOffsetTRelativeSlot(14, testempty, 0)
+    if testbool is not None:
+        builder.PrependBoolSlot(15, testbool, 0)
+    if testhashs32Fnv1 is not None:
+        builder.PrependInt32Slot(16, testhashs32Fnv1, 0)
+    if testhashu32Fnv1 is not None:
+        builder.PrependUint32Slot(17, testhashu32Fnv1, 0)
+    if testhashs64Fnv1 is not None:
+        builder.PrependInt64Slot(18, testhashs64Fnv1, 0)
+    if testhashu64Fnv1 is not None:
+        builder.PrependUint64Slot(19, testhashu64Fnv1, 0)
+    if testhashs32Fnv1a is not None:
+        builder.PrependInt32Slot(20, testhashs32Fnv1a, 0)
+    if testhashu32Fnv1a is not None:
+        builder.PrependUint32Slot(21, testhashu32Fnv1a, 0)
+    if testhashs64Fnv1a is not None:
+        builder.PrependInt64Slot(22, testhashs64Fnv1a, 0)
+    if testhashu64Fnv1a is not None:
+        builder.PrependUint64Slot(23, testhashu64Fnv1a, 0)
+    if testarrayofbools is not None:
+        builder.PrependUOffsetTRelativeSlot(24, testarrayofbools, 0)
+    return builder.EndObject()
 
 def MonsterStart(builder): builder.StartObject(25)
 def MonsterAddPos(builder, pos): builder.PrependStructSlot(0, pos, 0)
