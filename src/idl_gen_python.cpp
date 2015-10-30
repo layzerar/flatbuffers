@@ -27,6 +27,8 @@ namespace python {
 
 static std::string GenGetter(const Type &type);
 static std::string GenMethod(const FieldDef &field);
+static std::string GenImport(const StructDef &struct_def,
+                             const FieldDef &field);
 static void GenStructBuilder(const StructDef &struct_def,
                              std::string *code_ptr);
 static void GenReceiver(const StructDef &struct_def, std::string *code_ptr);
@@ -55,7 +57,7 @@ static void BeginFile(const std::string name_space_name,
   code += "# automatically generated, do not modify\n\n";
   code += "# namespace: " + name_space_name + "\n\n";
   if (needs_imports) {
-    code += "import flatbuffers\n\n";
+    code += "import flatbuffers\n\n\n";
   }
 }
 
@@ -164,7 +166,7 @@ static void GetStructFieldOfStruct(const StructDef &struct_def,
   code += MakeCamel(field.name);
   code += "(self):\n";
   code += Indent + Indent;
-  code += "from ." + TypeName(field) + " import " + TypeName(field) + "\n";
+  code += GenImport(struct_def, field) + TypeName(field) + "\n";
   code += Indent + Indent + "obj = " + TypeName(field) + "(";
   code += "flatbuffers.Table(self._tab.Bytes, self._tab.Pos + ";
   code += NumToString(field.value.offset) + "))\n";
@@ -185,7 +187,7 @@ static void GetStructFieldOfTable(const StructDef &struct_def,
     code += Indent + Indent + Indent + "o = self._tab.Indirect(o)\n";
   }
   code += Indent + Indent + Indent;
-  code += "from ." + TypeName(field) + " import " + TypeName(field) + "\n";
+  code += GenImport(struct_def, field) + TypeName(field) + "\n";
   code += Indent + Indent + Indent + "obj = " + TypeName(field) + "(";
   code += "flatbuffers.Table(self._tab.Bytes, self._tab.Pos + o))\n";
   code += Indent + Indent + Indent + "return obj\n";
@@ -237,7 +239,7 @@ static void GetMemberOfVectorOfStruct(const StructDef &struct_def,
     code += Indent + Indent + Indent + "x = self._tab.Indirect(x)\n";
   }
   code += Indent + Indent + Indent;
-  code += "from ." + TypeName(field) + " import " + TypeName(field) + "\n";
+  code += GenImport(struct_def, field) + TypeName(field) + "\n";
   code += Indent + Indent + Indent + "obj = " + TypeName(field) + "(";
   code += "flatbuffers.Table(self._tab.Bytes, self._tab.Pos + x))\n";
   code += Indent + Indent + Indent + "return obj\n";
@@ -382,8 +384,8 @@ static void TableKeywordBuilderBody(const StructDef &struct_def,
     code += MakeCamel(field.name, false);
     code += " is not None:\n";
     if (IsStruct(field.value.type)) {
-      code += Indent + Indent + "from .";
-      code += TypeName(field) + " import Create" + TypeName(field) + "\n";
+      code += Indent + Indent;
+      code += GenImport(struct_def, field) + "Create" + TypeName(field) + "\n";
       code += Indent + Indent + MakeCamel(field.name, false);
       code += " = Create" + TypeName(field) + "(builder, *";
       code += MakeCamel(field.name, false) + ")\n";
@@ -601,6 +603,30 @@ static std::string GenMethod(const FieldDef &field) {
     : (IsStruct(field.value.type) ? "Struct" : "UOffsetTRelative");
 }
 
+// Returns import statement for target type.
+static std::string GenImport(const StructDef &struct_def,
+                             const FieldDef &field) {
+  std::string stmt;
+  Namespace *curr = struct_def.defined_namespace;
+  Namespace *target = field.value.type.struct_def->defined_namespace;
+
+  stmt += "from ";
+  if (target != nullptr && curr != nullptr) {
+    size_t matched = 0;
+    while (matched < target->components.size() &&
+           matched < curr->components.size() &&
+           target->components[matched] == curr->components[matched]) {
+      ++matched;
+    }
+    stmt.append(curr->components.size() - matched + 1, '.');
+    while (matched < target->components.size()) {
+      stmt += target->components[matched] + ".";
+      ++matched;
+    }
+  }
+  stmt += TypeName(field) + " import ";
+  return stmt;
+}
 
 // Save out the generated code for a Python Table type.
 static bool SaveType(const Parser &parser, const Definition &def,
