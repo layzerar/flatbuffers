@@ -123,7 +123,7 @@ static void GetVectorLen(const StructDef &struct_def,
   std::string &code = *code_ptr;
 
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name) + "Length(self";
+  code += field.name + "_length(self";
   code += "):" + OffsetPrefix(field);
   code += Indent + Indent + Indent + "return self._tab.VectorLen(o)\n";
   code += Indent + Indent + "return 0\n\n";
@@ -136,7 +136,7 @@ static void GetScalarFieldOfStruct(const StructDef &struct_def,
   std::string &code = *code_ptr;
   std::string getter = GenGetter(field.value.type);
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self): return " + getter;
   code += NumToString(field.value.offset) + ")\n";
 }
@@ -148,7 +148,7 @@ static void GetScalarFieldOfTable(const StructDef &struct_def,
   std::string &code = *code_ptr;
   std::string getter = GenGetter(field.value.type);
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self):";
   code += OffsetPrefix(field);
   code += Indent + Indent + Indent + "return " + getter;
@@ -163,7 +163,7 @@ static void GetStructFieldOfStruct(const StructDef &struct_def,
                                    std::string *code_ptr) {
   std::string &code = *code_ptr;
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self):\n";
   code += Indent + Indent;
   code += GenImport(struct_def, field) + TypeName(field) + "\n";
@@ -180,7 +180,7 @@ static void GetStructFieldOfTable(const StructDef &struct_def,
                                   std::string *code_ptr) {
   std::string &code = *code_ptr;
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self):";
   code += OffsetPrefix(field);
   if (!field.value.type.struct_def->fixed) {
@@ -200,7 +200,7 @@ static void GetStringField(const StructDef &struct_def,
                            std::string *code_ptr) {
   std::string &code = *code_ptr;
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self):";
   code += OffsetPrefix(field);
   code += Indent + Indent + Indent + "return " + GenGetter(field.value.type);
@@ -214,7 +214,7 @@ static void GetUnionField(const StructDef &struct_def,
                           std::string *code_ptr) {
   std::string &code = *code_ptr;
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name) + "(self):";
+  code += field.name + "(self):";
   code += OffsetPrefix(field);
 
   // TODO(rw): this works and is not the good way to it:
@@ -231,7 +231,7 @@ static void GetMemberOfVectorOfStruct(const StructDef &struct_def,
   auto vectortype = field.value.type.VectorType();
 
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self, j):" + OffsetPrefix(field);
   code += Indent + Indent + Indent + "x = self._tab.Vector(o) + int(j) * ";
   code += NumToString(InlineSize(vectortype)) + "\n";
@@ -255,7 +255,7 @@ static void GetMemberOfVectorOfNonStruct(const StructDef &struct_def,
   auto vectortype = field.value.type.VectorType();
 
   GenReceiver(struct_def, code_ptr);
-  code += MakeCamel(field.name);
+  code += field.name;
   code += "(self, j):";
   code += OffsetPrefix(field);
   code += Indent + Indent + Indent + "x = self._tab.Vector(o) + int(j) * ";
@@ -299,7 +299,7 @@ static void StructBuilderArgs(const StructDef &struct_def,
     } else {
       std::string &code = *code_ptr;
       code += (std::string)", " + nameprefix;
-      code += MakeCamel(field.name, false);
+      code += field.name;
     }
   }
 }
@@ -330,7 +330,7 @@ static void StructBuilderBody(const StructDef &struct_def,
                         code_ptr);
     } else {
       code += "    builder.Prepend" + GenMethod(field) + "(";
-      code += nameprefix + MakeCamel(field.name, false) + ")\n";
+      code += nameprefix + field.name + ")\n";
     }
   }
 }
@@ -356,7 +356,7 @@ static void TableKeywordBuilderArgs(const StructDef &struct_def,
       continue;
     }
     code += ",\n" + Indent + Indent;
-    code += MakeCamel(field.name, false);
+    code += field.name;
     code += "=None";
   }
 
@@ -381,19 +381,19 @@ static void TableKeywordBuilderBody(const StructDef &struct_def,
     auto offset = it - struct_def.fields.vec.begin();
 
     code += Indent + "if ";
-    code += MakeCamel(field.name, false);
+    code += field.name;
     code += " is not None:\n";
     if (IsStruct(field.value.type)) {
       code += Indent + Indent;
       code += GenImport(struct_def, field) + "Create" + TypeName(field) + "\n";
-      code += Indent + Indent + MakeCamel(field.name, false);
+      code += Indent + Indent + field.name;
       code += " = Create" + TypeName(field) + "(builder, *";
-      code += MakeCamel(field.name, false) + ")\n";
+      code += field.name + ")\n";
     }
     code += Indent + Indent + "builder.Prepend";
     code += GenMethod(field) + "Slot(";
     code += NumToString(offset) + ", ";
-    code += MakeCamel(field.name, false);
+    code += field.name;
     code += ", " + field.value.constant;
     code += ")\n";
   }
@@ -420,12 +420,12 @@ static void BuildFieldOfTable(const StructDef &struct_def,
   std::string &code = *code_ptr;
   code += "def " + struct_def.name + "Add" + MakeCamel(field.name);
   code += "(builder, ";
-  code += MakeCamel(field.name, false);
+  code += field.name;
   code += "): ";
   code += "builder.Prepend";
   code += GenMethod(field) + "Slot(";
   code += NumToString(offset) + ", ";
-  code += MakeCamel(field.name, false);
+  code += field.name;
   code += ", " + field.value.constant;
   code += ")\n";
 }
@@ -437,12 +437,12 @@ static void BuildVectorOfTable(const StructDef &struct_def,
   std::string &code = *code_ptr;
   code += "def " + struct_def.name + "Start";
   code += MakeCamel(field.name);
-  code += "Vector(builder, numElems): return builder.StartVector(";
+  code += "Vector(builder, num): return builder.StartVector(";
   auto vector_type = field.value.type.VectorType();
   auto alignment = InlineAlignment(vector_type);
   auto elem_size = InlineSize(vector_type);
   code += NumToString(elem_size);
-  code += ", numElems, " + NumToString(alignment);
+  code += ", num, " + NumToString(alignment);
   code += ")\n";
 }
 
