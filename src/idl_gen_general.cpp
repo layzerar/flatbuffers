@@ -878,7 +878,7 @@ static void GenStruct(const LanguageParameters &lang, const Parser &parser,
                 field.value.type.base_type != BASE_TYPE_UNION) {
               // in C#, enum values have their own type, so we need to cast the
               // numeric value to the proper type
-              code += "(" + field.value.type.enum_def->name + ")";
+              // code += "(" + field.value.type.enum_def->name + ")";
             } else if (IsScalar(field.value.type.base_type)) {
               code += "(";
               code += GenTypeForUser(
