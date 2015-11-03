@@ -54,6 +54,7 @@ static void BeginFile(const std::string name_space_name,
                       const bool needs_imports,
                       std::string *code_ptr) {
   std::string &code = *code_ptr;
+  code += "# -*- coding: utf-8 -*-\n";
   code += "# automatically generated, do not modify\n\n";
   code += "# namespace: " + name_space_name + "\n\n";
   if (needs_imports) {
