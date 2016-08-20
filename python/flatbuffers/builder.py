@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import number_types as N
-from .number_types import (UOffsetTFlags, SOffsetTFlags, VOffsetTFlags)
+from .number_types import (
+    BoolFlags,
+    Uint8Flags,
+    Uint16Flags,
+    Uint32Flags,
+    Uint64Flags,
+    Int8Flags,
+    Int16Flags,
+    Int32Flags,
+    Int64Flags,
+    Float32Flags,
+    Float64Flags,
+    SOffsetTFlags,
+    UOffsetTFlags,
+    VOffsetTFlags)
 
 from . import encode
 from . import packer
@@ -56,7 +69,7 @@ class Builder(object):
     Builder will never allow it's buffer grow over this size.
     Currently equals 2Gb.
     """
-    MAX_BUFFER_SIZE = 2**31
+    MAX_BUFFER_SIZE = 2**31 - 1
 
     def __init__(self, initialSize):
         """
@@ -70,7 +83,7 @@ class Builder(object):
 
         self.Bytes = bytearray(initialSize)
         self.current_vtable = None
-        self.head = UOffsetTFlags.py_type(initialSize)
+        self.head = len(self.Bytes)
         self.minalign = 1
         self.objectEnd = None
         self.vtables = []
@@ -82,6 +95,18 @@ class Builder(object):
         """
 
         return bytes(self.Bytes[self.Head():])
+
+    def Reset(self):
+        """
+        Reset truncates the underlying Builder buffer, facilitating alloc-free
+        reuse of a Builder. It also resets bookkeeping data.
+        """
+
+        self.vtables = []
+        self.current_vtable = None
+        self.head = len(self.Bytes)
+        self.minalign = 1
+        self.objectEnd = None
 
     def StartObject(self, numfields):
         """StartObject initializes bookkeeping for writing a new object."""
@@ -138,7 +163,7 @@ class Builder(object):
 
             metadata = VtableMetadataFields * VOffsetTFlags.bytewidth
             vt2End = vt2Start + vt2Len
-            vt2 = self.Bytes[vt2Start+metadata:vt2End]
+            vt2 = self.Bytes[vt2Start + metadata:vt2End]
 
             # Compare the other vtable to the one under consideration.
             # If they are equal, store the offset and break:
@@ -167,33 +192,30 @@ class Builder(object):
             # The two metadata fields are written last.
 
             # First, store the object bytesize:
-            objectSize = UOffsetTFlags.py_type(objectOffset - self.objectEnd)
-            self.PrependVOffsetT(VOffsetTFlags.py_type(objectSize))
+            self.PrependVOffsetT(objectOffset - self.objectEnd)
 
             # Second, store the vtable bytesize:
             vBytes = len(self.current_vtable) + VtableMetadataFields
             vBytes *= VOffsetTFlags.bytewidth
-            self.PrependVOffsetT(VOffsetTFlags.py_type(vBytes))
+            self.PrependVOffsetT(vBytes)
 
             # Next, write the offset to the new vtable in the
             # already-allocated SOffsetT at the beginning of this object:
-            objectStart = SOffsetTFlags.py_type(len(self.Bytes) - objectOffset)
-            encode.Write(packer.soffset, self.Bytes, objectStart,
-                         SOffsetTFlags.py_type(self.Offset() - objectOffset))
+            encode.Write(packer.soffset, self.Bytes,
+                         len(self.Bytes) - objectOffset,
+                         self.Offset() - objectOffset)
 
             # Finally, store this vtable in memory for future
             # deduplication:
             self.vtables.append(self.Offset())
         else:
             # Found a duplicate vtable.
-
-            objectStart = SOffsetTFlags.py_type(len(self.Bytes) - objectOffset)
-            self.head = UOffsetTFlags.py_type(objectStart)
+            self.head = len(self.Bytes) - objectOffset
 
             # Write the offset to the found vtable in the
             # already-allocated SOffsetT at the beginning of this object:
             encode.Write(packer.soffset, self.Bytes, self.Head(),
-                         SOffsetTFlags.py_type(existingVtable - objectOffset))
+                         existingVtable - objectOffset)
 
         self.current_vtable = None
         return objectOffset
@@ -217,7 +239,7 @@ class Builder(object):
         if newSize == 0:
             newSize = 1
         bytes2 = bytearray(newSize)
-        bytes2[newSize-len(self.Bytes):] = self.Bytes
+        bytes2[newSize - len(self.Bytes):] = self.Bytes
         self.Bytes = bytes2
 
     def Head(self):
@@ -229,12 +251,12 @@ class Builder(object):
 
     def Offset(self):
         """Offset relative to the end of the buffer."""
-        return UOffsetTFlags.py_type(len(self.Bytes) - self.Head())
+        return len(self.Bytes) - self.Head()
 
     def Pad(self, n):
         """Pad places zeros at the current offset."""
-        for i in range_func(n):
-            self.Place(0, N.Uint8Flags)
+        for _ in range_func(n):
+            self.Place(0, Uint8Flags)
 
     def Prep(self, size, additionalBytes):
         """
@@ -255,11 +277,10 @@ class Builder(object):
         alignSize &= (size - 1)
 
         # Reallocate the buffer if needed:
-        while self.Head() < alignSize+size+additionalBytes:
+        while self.Head() < alignSize + size + additionalBytes:
             oldBufSize = len(self.Bytes)
             self.growByteBuffer()
-            updated_head = self.head + len(self.Bytes) - oldBufSize
-            self.head = UOffsetTFlags.py_type(updated_head)
+            self.head = self.head + len(self.Bytes) - oldBufSize
         self.Pad(alignSize)
 
     def PrependSOffsetTRelative(self, off):
@@ -300,8 +321,8 @@ class Builder(object):
         """
 
         self.assertNotNested()
-        self.Prep(N.Uint32Flags.bytewidth, elemSize*numElems)
-        self.Prep(alignment, elemSize*numElems)  # In case alignment > int.
+        self.Prep(Uint32Flags.bytewidth, elemSize * numElems)
+        self.Prep(alignment, elemSize * numElems)  # In case alignment > int.
         return self.Offset()
 
     def EndVector(self, vectorNumElems):
@@ -323,13 +344,12 @@ class Builder(object):
         else:
             raise TypeError("non-string passed to CreateString")
 
-        self.Prep(UOffsetTFlags.bytewidth, (len(x)+1)*N.Uint8Flags.bytewidth)
-        self.Place(0, N.Uint8Flags)
+        self.Prep(UOffsetTFlags.bytewidth, (len(x) + 1) * Uint8Flags.bytewidth)
+        self.Place(0, Uint8Flags)
 
-        l = UOffsetTFlags.py_type(len(s))
-
-        self.head = UOffsetTFlags.py_type(self.Head() - l)
-        self.Bytes[self.Head():self.Head()+l] = x
+        l = len(s)
+        self.head = self.Head() - l
+        self.Bytes[self.Head():self.Head() + l] = x
 
         return self.EndVector(len(x))
 
@@ -351,7 +371,7 @@ class Builder(object):
         elsewhere.
         """
 
-        N.enforce_number(obj, UOffsetTFlags)
+        UOffsetTFlags.enforce_number(obj)
         if obj != self.Offset():
             msg = ("flatbuffers: Tried to write a Struct at an Offset that "
                    "is different from the current Offset of the Builder.")
@@ -372,7 +392,7 @@ class Builder(object):
 
     def Finish(self, rootTable):
         """Finish finalizes a buffer, pointing to the given `rootTable`."""
-        N.enforce_number(rootTable, UOffsetTFlags)
+        UOffsetTFlags.enforce_number(rootTable)
         self.Prep(self.minalign, UOffsetTFlags.bytewidth)
         self.PrependUOffsetTRelative(rootTable)
         return self.Head()
@@ -382,37 +402,35 @@ class Builder(object):
         self.Place(off, flags)
 
     def PrependSlot(self, flags, o, x, d):
-        N.enforce_number(x, flags)
-        N.enforce_number(d, flags)
+        flags.enforce_number(x)
+        flags.enforce_number(d)
         if x != d:
             self.Prepend(flags, x)
             self.Slot(o)
 
-    def PrependBoolSlot(self, *args): self.PrependSlot(N.BoolFlags, *args)
+    def PrependBoolSlot(self, *args): self.PrependSlot(BoolFlags, *args)
 
-    def PrependByteSlot(self, *args): self.PrependSlot(N.Uint8Flags, *args)
+    def PrependByteSlot(self, *args): self.PrependSlot(Uint8Flags, *args)
 
-    def PrependUint8Slot(self, *args): self.PrependSlot(N.Uint8Flags, *args)
+    def PrependUint8Slot(self, *args): self.PrependSlot(Uint8Flags, *args)
 
-    def PrependUint16Slot(self, *args): self.PrependSlot(N.Uint16Flags, *args)
+    def PrependUint16Slot(self, *args): self.PrependSlot(Uint16Flags, *args)
 
-    def PrependUint32Slot(self, *args): self.PrependSlot(N.Uint32Flags, *args)
+    def PrependUint32Slot(self, *args): self.PrependSlot(Uint32Flags, *args)
 
-    def PrependUint64Slot(self, *args): self.PrependSlot(N.Uint64Flags, *args)
+    def PrependUint64Slot(self, *args): self.PrependSlot(Uint64Flags, *args)
 
-    def PrependInt8Slot(self, *args): self.PrependSlot(N.Int8Flags, *args)
+    def PrependInt8Slot(self, *args): self.PrependSlot(Int8Flags, *args)
 
-    def PrependInt16Slot(self, *args): self.PrependSlot(N.Int16Flags, *args)
+    def PrependInt16Slot(self, *args): self.PrependSlot(Int16Flags, *args)
 
-    def PrependInt32Slot(self, *args): self.PrependSlot(N.Int32Flags, *args)
+    def PrependInt32Slot(self, *args): self.PrependSlot(Int32Flags, *args)
 
-    def PrependInt64Slot(self, *args): self.PrependSlot(N.Int64Flags, *args)
+    def PrependInt64Slot(self, *args): self.PrependSlot(Int64Flags, *args)
 
-    def PrependFloat32Slot(self, *args): self.PrependSlot(N.Float32Flags,
-                                                          *args)
+    def PrependFloat32Slot(self, *args): self.PrependSlot(Float32Flags, *args)
 
-    def PrependFloat64Slot(self, *args): self.PrependSlot(N.Float64Flags,
-                                                          *args)
+    def PrependFloat64Slot(self, *args): self.PrependSlot(Float64Flags, *args)
 
     def PrependUOffsetTRelativeSlot(self, o, x, d):
         """
@@ -421,8 +439,7 @@ class Builder(object):
         be set to zero and no other data will be written.
         """
 
-        x = UOffsetTFlags.py_type(x)
-        N.enforce_number(x, UOffsetTFlags)
+        UOffsetTFlags.enforce_number(x)
         if x != d:
             self.PrependUOffsetTRelative(x)
             self.Slot(o)
@@ -434,38 +451,37 @@ class Builder(object):
         In generated code, `d` is always 0.
         """
 
-        x = UOffsetTFlags.py_type(x)
-        N.enforce_number(x, UOffsetTFlags)
-        N.enforce_number(d, UOffsetTFlags)
+        UOffsetTFlags.enforce_number(x)
+        UOffsetTFlags.enforce_number(d)
         if x != d:
             self.assertNested(x)
             self.Slot(v)
 
-    def PrependBool(self, x): self.Prepend(N.BoolFlags, x)
+    def PrependBool(self, x): self.Prepend(BoolFlags, x)
 
-    def PrependByte(self, x): self.Prepend(N.Uint8Flags, x)
+    def PrependByte(self, x): self.Prepend(Uint8Flags, x)
 
-    def PrependUint8(self, x): self.Prepend(N.Uint8Flags, x)
+    def PrependUint8(self, x): self.Prepend(Uint8Flags, x)
 
-    def PrependUint16(self, x): self.Prepend(N.Uint16Flags, x)
+    def PrependUint16(self, x): self.Prepend(Uint16Flags, x)
 
-    def PrependUint32(self, x): self.Prepend(N.Uint32Flags, x)
+    def PrependUint32(self, x): self.Prepend(Uint32Flags, x)
 
-    def PrependUint64(self, x): self.Prepend(N.Uint64Flags, x)
+    def PrependUint64(self, x): self.Prepend(Uint64Flags, x)
 
-    def PrependInt8(self, x): self.Prepend(N.Int8Flags, x)
+    def PrependInt8(self, x): self.Prepend(Int8Flags, x)
 
-    def PrependInt16(self, x): self.Prepend(N.Int16Flags, x)
+    def PrependInt16(self, x): self.Prepend(Int16Flags, x)
 
-    def PrependInt32(self, x): self.Prepend(N.Int32Flags, x)
+    def PrependInt32(self, x): self.Prepend(Int32Flags, x)
 
-    def PrependInt64(self, x): self.Prepend(N.Int64Flags, x)
+    def PrependInt64(self, x): self.Prepend(Int64Flags, x)
 
-    def PrependFloat32(self, x): self.Prepend(N.Float32Flags, x)
+    def PrependFloat32(self, x): self.Prepend(Float32Flags, x)
 
-    def PrependFloat64(self, x): self.Prepend(N.Float64Flags, x)
+    def PrependFloat64(self, x): self.Prepend(Float64Flags, x)
 
-    def PrependVOffsetT(self, x): self.Prepend(N.VOffsetTFlags, x)
+    def PrependVOffsetT(self, x): self.Prepend(VOffsetTFlags, x)
 
     def Place(self, x, flags):
         """
@@ -473,7 +489,7 @@ class Builder(object):
         without checking for available space.
         """
 
-        N.enforce_number(x, flags)
+        flags.enforce_number(x)
         self.head = self.head - flags.bytewidth
         encode.Write(flags.packer_type, self.Bytes, self.Head(), x)
 
@@ -482,7 +498,7 @@ class Builder(object):
         PlaceVOffsetT prepends a VOffsetT to the Builder, without checking for
         space.
         """
-        N.enforce_number(x, VOffsetTFlags)
+        VOffsetTFlags.enforce_number(x)
         self.head = self.head - VOffsetTFlags.bytewidth
         encode.Write(packer.voffset, self.Bytes, self.Head(), x)
 
@@ -491,7 +507,7 @@ class Builder(object):
         PlaceSOffsetT prepends a SOffsetT to the Builder, without checking for
         space.
         """
-        N.enforce_number(x, SOffsetTFlags)
+        SOffsetTFlags.enforce_number(x)
         self.head = self.head - SOffsetTFlags.bytewidth
         encode.Write(packer.soffset, self.Bytes, self.Head(), x)
 
@@ -500,7 +516,7 @@ class Builder(object):
         PlaceUOffsetT prepends a UOffsetT to the Builder, without checking for
         space.
         """
-        N.enforce_number(x, UOffsetTFlags)
+        UOffsetTFlags.enforce_number(x)
         self.head = self.head - UOffsetTFlags.bytewidth
         encode.Write(packer.uoffset, self.Bytes, self.Head(), x)
 
@@ -508,7 +524,7 @@ class Builder(object):
 def vtableEqual(a, objectStart, b):
     """vtableEqual compares an unwritten vtable to a written vtable."""
 
-    N.enforce_number(objectStart, UOffsetTFlags)
+    UOffsetTFlags.enforce_number(objectStart)
 
     if len(a) * VOffsetTFlags.bytewidth != len(b):
         return False

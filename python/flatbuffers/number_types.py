@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct
-
 from . import packer
 
 
@@ -23,149 +21,66 @@ from . import packer
 # These classes could be collections.namedtuple instances, but those are new
 # in 2.6 and we want to work towards 2.5 compatability.
 
-class BoolFlags(object):
-    bytewidth = 1
-    min_val = False
-    max_val = True
-    py_type = bool
-    name = "bool"
-    packer_type = packer.boolean
+class TypeFlags(object):
+
+    def __init__(self, bytewidth, min_val, max_val, py_type, name, packer_type):
+        self.bytewidth = bytewidth
+        self.min_val = min_val
+        self.max_val = max_val
+        self.py_type = py_type
+        self.name = name
+        self.packer_type = packer_type
+
+    def __call__(self, n):
+        return self.py_type(n)
+
+    def valid_number(self, n):
+        if self.min_val is None and self.max_val is None:
+            return True
+        return self.min_val <= n <= self.max_val
+
+    def enforce_number(self, n):
+        if self.min_val is None and self.max_val is None:
+            return
+        if not self.min_val <= n <= self.max_val:
+            raise TypeError("bad number %s for type %s" % (str(n), self.name))
 
 
-class Uint8Flags(object):
-    bytewidth = 1
-    min_val = 0
-    max_val = (2**8) - 1
-    py_type = int
-    name = "uint8"
-    packer_type = packer.uint8
+BoolFlags = TypeFlags(1, False, True, bool, "bool", packer.boolean)
 
+Uint8Flags = TypeFlags(1, 0, (2**8) - 1, int, "uint8", packer.uint8)
+Uint16Flags = TypeFlags(2, 0, (2**16) - 1, int, "uint16", packer.uint16)
+Uint32Flags = TypeFlags(4, 0, (2**32) - 1, int, "uint32", packer.uint32)
+Uint64Flags = TypeFlags(8, 0, (2**64) - 1, int, "uint64", packer.uint64)
 
-class Uint16Flags(object):
-    bytewidth = 2
-    min_val = 0
-    max_val = (2**16) - 1
-    py_type = int
-    name = "uint16"
-    packer_type = packer.uint16
+Int8Flags = TypeFlags(1, -(2**7), (2**7) - 1, int, "int8", packer.int8)
+Int16Flags = TypeFlags(2, -(2**15), (2**15) - 1, int, "int16", packer.int16)
+Int32Flags = TypeFlags(4, -(2**31), (2**31) - 1, int, "int32", packer.int32)
+Int64Flags = TypeFlags(8, -(2**63), (2**63) - 1, int, "int64", packer.int64)
 
+Float32Flags = TypeFlags(4, -3.40282347e+38, 3.40282347e+38, float, "float32", packer.float32)
+Float64Flags = TypeFlags(8, -1.7976931348623157e+308, 1.7976931348623157e+308, float, "float64", packer.float64)
 
-class Uint32Flags(object):
-    bytewidth = 4
-    min_val = 0
-    max_val = (2**32) - 1
-    py_type = int
-    name = "uint32"
-    packer_type = packer.uint32
-
-
-class Uint64Flags(object):
-    bytewidth = 8
-    min_val = 0
-    max_val = (2**64) - 1
-    py_type = int
-    name = "uint64"
-    packer_type = packer.uint64
-
-
-class Int8Flags(object):
-    bytewidth = 1
-    min_val = -(2**7)
-    max_val = (2**7) - 1
-    py_type = int
-    name = "int8"
-    packer_type = packer.int8
-
-
-class Int16Flags(object):
-    bytewidth = 2
-    min_val = -(2**15)
-    max_val = (2**15) - 1
-    py_type = int
-    name = "int16"
-    packer_type = packer.int16
-
-
-class Int32Flags(object):
-    bytewidth = 4
-    min_val = -(2**31)
-    max_val = (2**31) - 1
-    py_type = int
-    name = "int32"
-    packer_type = packer.int32
-
-
-class Int64Flags(object):
-    bytewidth = 8
-    min_val = -(2**63)
-    max_val = (2**63) - 1
-    py_type = int
-    name = "int64"
-    packer_type = packer.int64
-
-
-class Float32Flags(object):
-    bytewidth = 4
-    min_val = None
-    max_val = None
-    py_type = float
-    name = "float32"
-    packer_type = packer.float32
-
-
-class Float64Flags(object):
-    bytewidth = 8
-    min_val = None
-    max_val = None
-    py_type = float
-    name = "float64"
-    packer_type = packer.float64
-
-
-class SOffsetTFlags(Int32Flags):
-    pass
-
-
-class UOffsetTFlags(Uint32Flags):
-    pass
-
-
-class VOffsetTFlags(Uint16Flags):
-    pass
-
-
-def valid_number(n, flags):
-    if flags.min_val is None and flags.max_val is None:
-        return True
-    return flags.min_val <= n <= flags.max_val
-
-
-def enforce_number(n, flags):
-    if flags.min_val is None and flags.max_val is None:
-        return
-    if not flags.min_val <= n <= flags.max_val:
-        raise TypeError("bad number %s for type %s" % (str(n), flags.name))
+SOffsetTFlags = Int32Flags
+UOffsetTFlags = Uint32Flags
+VOffsetTFlags = Uint16Flags
 
 
 def float32_to_uint32(n):
-    packed = struct.pack("<1f", n)
-    (converted,) = struct.unpack("<1L", packed)
-    return converted
+    packed = packer.float32.pack(n)
+    return packer.uint32.unpack(packed)[0]
 
 
 def uint32_to_float32(n):
-    packed = struct.pack("<1L", n)
-    (unpacked,) = struct.unpack("<1f", packed)
-    return unpacked
+    packed = packer.uint32.pack(n)
+    return packer.float32.unpack(packed)[0]
 
 
 def float64_to_uint64(n):
-    packed = struct.pack("<1d", n)
-    (converted,) = struct.unpack("<1Q", packed)
-    return converted
+    packed = packer.float64.pack(n)
+    return packer.uint64.unpack(packed)[0]
 
 
 def uint64_to_float64(n):
-    packed = struct.pack("<1Q", n)
-    (unpacked,) = struct.unpack("<1d", packed)
-    return unpacked
+    packed = packer.uint64.pack(n)
+    return packer.float64.unpack(packed)[0]

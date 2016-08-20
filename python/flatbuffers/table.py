@@ -13,7 +13,21 @@
 # limitations under the License.
 
 from . import encode
-from . import number_types as N
+from .number_types import (
+    BoolFlags,
+    Uint8Flags,
+    Uint16Flags,
+    Uint32Flags,
+    Uint64Flags,
+    Int8Flags,
+    Int16Flags,
+    Int32Flags,
+    Int64Flags,
+    Float32Flags,
+    Float64Flags,
+    SOffsetTFlags,
+    UOffsetTFlags,
+    VOffsetTFlags)
 
 
 class Table(object):
@@ -25,7 +39,7 @@ class Table(object):
     __slots__ = ("Bytes", "Pos")
 
     def __init__(self, buf, pos):
-        N.enforce_number(pos, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(pos)
 
         self.Bytes = buf
         self.Pos = pos
@@ -33,7 +47,7 @@ class Table(object):
     @classmethod
     def GetRoot(cls, buf, offset):
         """GetRoot retrieves the root object contained in the `buffer`."""
-        n = encode.Get(N.UOffsetTFlags.packer_type, buf, offset)
+        n = encode.Get(UOffsetTFlags.packer_type, buf, offset)
         return cls(buf, n + offset)
 
     def Offset(self, vtableOffset):
@@ -41,55 +55,55 @@ class Table(object):
 
         Deprecated fields are ignored by checking the vtable's length."""
 
-        vtable = self.Pos - encode.Get(N.SOffsetTFlags.packer_type,
+        vtable = self.Pos - encode.Get(SOffsetTFlags.packer_type,
                                        self.Bytes,
                                        self.Pos)
-        vtableEnd = encode.Get(N.VOffsetTFlags.packer_type, self.Bytes, vtable)
+        vtableEnd = encode.Get(VOffsetTFlags.packer_type, self.Bytes, vtable)
         if vtableOffset < vtableEnd:
-            return encode.Get(N.VOffsetTFlags.packer_type,
+            return encode.Get(VOffsetTFlags.packer_type,
                               self.Bytes,
                               vtable + vtableOffset)
         return 0
 
     def Indirect(self, off):
         """Indirect retrieves the relative offset stored at `offset`."""
-        N.enforce_number(off, N.UOffsetTFlags)
-        return off + self.Get(N.UOffsetTFlags, off)
+        UOffsetTFlags.enforce_number(off)
+        return off + self.Get(UOffsetTFlags, off)
 
     def String(self, off):
         """String gets a string from data stored inside the flatbuffer."""
-        N.enforce_number(off, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(off)
 
-        off += self.Get(N.UOffsetTFlags, off)
-        length = self.Get(N.UOffsetTFlags, off)
-        start = self.Pos + off + N.UOffsetTFlags.bytewidth
+        off += self.Get(UOffsetTFlags, off)
+        length = self.Get(UOffsetTFlags, off)
+        start = self.Pos + off + UOffsetTFlags.bytewidth
         return bytes(self.Bytes[start:start + length])
 
     def VectorLen(self, off):
         """VectorLen retrieves the length of the vector whose offset is stored
            at "off" in this object."""
-        N.enforce_number(off, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(off)
 
-        off += self.Get(N.UOffsetTFlags, off)
-        ret = self.Get(N.UOffsetTFlags, off)
+        off += self.Get(UOffsetTFlags, off)
+        ret = self.Get(UOffsetTFlags, off)
         return ret
 
     def Vector(self, off):
         """Vector retrieves the start of data of the vector whose offset is
            stored at "off" in this object."""
-        N.enforce_number(off, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(off)
 
-        x = off + self.Get(N.UOffsetTFlags, off)
+        x = off + self.Get(UOffsetTFlags, off)
         # data starts after metadata containing the vector length
-        x += N.UOffsetTFlags.bytewidth
+        x += UOffsetTFlags.bytewidth
         return x
 
     def Union(self, off):
         """Union initializes any Table-derived type to point to the union at
            the given offset."""
-        N.enforce_number(off, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(off)
 
-        off += self.Get(N.UOffsetTFlags, off)
+        off += self.Get(UOffsetTFlags, off)
         return Table(self.Bytes, self.Pos + off)
 
     def Get(self, flags, off):
@@ -97,73 +111,75 @@ class Table(object):
         Get retrieves a value of the type specified by `flags`  at the
         given offset.
         """
-        N.enforce_number(off, N.UOffsetTFlags)
+        UOffsetTFlags.enforce_number(off)
 
         off += self.Pos
-        return flags.py_type(encode.Get(flags.packer_type, self.Bytes, off))
+        return encode.Get(flags.packer_type, self.Bytes, off)
 
-    def GetBool(self, off): return self.Get(N.BoolFlags, off)
+    def GetBool(self, off): return self.Get(BoolFlags, off)
 
-    def GetByte(self, off): return self.Get(N.Uint8Flags, off)
+    def GetByte(self, off): return self.Get(Uint8Flags, off)
 
-    def GetUint8(self, off): return self.Get(N.Uint8Flags, off)
+    def GetUint8(self, off): return self.Get(Uint8Flags, off)
 
-    def GetUint16(self, off): return self.Get(N.Uint16Flags, off)
+    def GetUint16(self, off): return self.Get(Uint16Flags, off)
 
-    def GetUint32(self, off): return self.Get(N.Uint32Flags, off)
+    def GetUint32(self, off): return self.Get(Uint32Flags, off)
 
-    def GetUint64(self, off): return self.Get(N.Uint64Flags, off)
+    def GetUint64(self, off): return self.Get(Uint64Flags, off)
 
-    def GetInt8(self, off): return self.Get(N.Int8Flags, off)
+    def GetInt8(self, off): return self.Get(Int8Flags, off)
 
-    def GetInt16(self, off): return self.Get(N.Int16Flags, off)
+    def GetInt16(self, off): return self.Get(Int16Flags, off)
 
-    def GetInt32(self, off): return self.Get(N.Int32Flags, off)
+    def GetInt32(self, off): return self.Get(Int32Flags, off)
 
-    def GetInt64(self, off): return self.Get(N.Int64Flags, off)
+    def GetInt64(self, off): return self.Get(Int64Flags, off)
 
-    def GetFloat32(self, off): return self.Get(N.Float32Flags, off)
+    def GetFloat32(self, off): return self.Get(Float32Flags, off)
 
-    def GetFloat64(self, off): return self.Get(N.Float64Flags, off)
+    def GetFloat64(self, off): return self.Get(Float64Flags, off)
 
-    def GetUOffsetT(self, off): return self.Get(N.UOffsetTFlags, off)
+    def GetUOffsetT(self, off): return self.Get(UOffsetTFlags, off)
 
-    def GetVOffsetT(self, off): return self.Get(N.VOffsetTFlags, off)
+    def GetVOffsetT(self, off): return self.Get(VOffsetTFlags, off)
 
-    def GetSOffsetT(self, off): return self.Get(N.SOffsetTFlags, off)
+    def GetSOffsetT(self, off): return self.Get(SOffsetTFlags, off)
 
     def GetSlot(self, flags, slot, d):
-        N.enforce_number(slot, N.VOffsetTFlags)
-        N.enforce_number(d, flags)
+        VOffsetTFlags.enforce_number(slot)
+        flags.enforce_number(d)
 
         off = self.Offset(slot)
         if off == 0:
             return d
         return self.Get(flags, off)
 
-    def GetBoolSlot(self, slot, d): return self.GetSlot(N.BoolFlags, slot, d)
+    def GetBoolSlot(self, slot, d): return self.GetSlot(BoolFlags, slot, d)
 
-    def GetByteSlot(self, slot, d): return self.GetSlot(N.Uint8Flags, slot, d)
+    def GetByteSlot(self, slot, d): return self.GetSlot(Uint8Flags, slot, d)
 
-    def GetUint8Slot(self, slot, d): return self.GetSlot(N.Uint8Flags, slot, d)
+    def GetUint8Slot(self, slot, d): return self.GetSlot(Uint8Flags, slot, d)
 
-    def GetUint16Slot(self, slot, d): return self.GetSlot(N.Uint16Flags, slot, d)
+    def GetUint16Slot(self, slot, d): return self.GetSlot(Uint16Flags, slot, d)
 
-    def GetUint32Slot(self, slot, d): return self.GetSlot(N.Uint32Flags, slot, d)
+    def GetUint32Slot(self, slot, d): return self.GetSlot(Uint32Flags, slot, d)
 
-    def GetUint64Slot(self, slot, d): return self.GetSlot(N.Uint64Flags, slot, d)
+    def GetUint64Slot(self, slot, d): return self.GetSlot(Uint64Flags, slot, d)
 
-    def GetInt8Slot(self, slot, d): return self.GetSlot(N.Int8Flags, slot, d)
+    def GetInt8Slot(self, slot, d): return self.GetSlot(Int8Flags, slot, d)
 
-    def GetInt16Slot(self, slot, d): return self.GetSlot(N.Int16Flags, slot, d)
+    def GetInt16Slot(self, slot, d): return self.GetSlot(Int16Flags, slot, d)
 
-    def GetInt32Slot(self, slot, d): return self.GetSlot(N.Int32Flags, slot, d)
+    def GetInt32Slot(self, slot, d): return self.GetSlot(Int32Flags, slot, d)
 
-    def GetInt64Slot(self, slot, d): return self.GetSlot(N.Int64Flags, slot, d)
+    def GetInt64Slot(self, slot, d): return self.GetSlot(Int64Flags, slot, d)
 
-    def GetFloat32Slot(self, slot, d): return self.GetSlot(N.Float32Flags, slot, d)
+    def GetFloat32Slot(self, slot, d): return self.GetSlot(
+        Float32Flags, slot, d)
 
-    def GetFloat64Slot(self, slot, d): return self.GetSlot(N.Float64Flags, slot, d)
+    def GetFloat64Slot(self, slot, d): return self.GetSlot(
+        Float64Flags, slot, d)
 
     def GetVOffsetTSlot(self, slot, d):
         """
@@ -171,9 +187,8 @@ class Table(object):
         points to. If the vtable value is zero, the default value `d`
         will be returned.
         """
-
-        N.enforce_number(slot, N.VOffsetTFlags)
-        N.enforce_number(d, N.VOffsetTFlags)
+        VOffsetTFlags.enforce_number(slot)
+        VOffsetTFlags.enforce_number(d)
 
         off = self.Offset(slot)
         if off == 0:
