@@ -73,9 +73,9 @@ class Builder(object):
     Builder will never allow it's buffer grow over this size.
     Currently equals 2Gb.
     """
-    MAX_BUFFER_SIZE = 2**31 - 1
+    MAX_BUFFER_SIZE = 2**31
 
-    def __init__(self, initialSize):
+    def __init__(self, initialSize=1024):
         """
         Initializes a Builder of size `initial_size`.
         The internal buffer is grown as needed.
@@ -225,15 +225,15 @@ class Builder(object):
             raise NotInObjectError(msg)
         return self.WriteVtable()
 
-    def growByteBuffer(self):
+    def growByteBuffer(self, freeSize):
         """Doubles the size of the byteslice, and copies the old data towards
            the end of the new buffer (since we build the buffer backwards)."""
         oldSize = len(self.Bytes)
-        if oldSize >= self.MAX_BUFFER_SIZE:
+        newSize = max(1024, oldSize * 2, oldSize + freeSize - self.head)
+        if newSize >= self.MAX_BUFFER_SIZE:
             msg = "flatbuffers: cannot grow buffer beyond 2 gigabytes"
             raise BuilderSizeError(msg)
 
-        newSize = max(64, oldSize * 2)
         newBytes = bytearray(newSize)
         newBytes[newSize - oldSize:] = self.Bytes
         self.Bytes = newBytes
@@ -276,8 +276,8 @@ class Builder(object):
         totalSize = alignSize + size + additionalBytes
 
         # Reallocate the buffer if needed:
-        while self.head < totalSize:
-            self.growByteBuffer()
+        if self.head < totalSize:
+            self.growByteBuffer(totalSize)
         self.head -= alignSize
 
     def PrependSOffsetTRelative(self, off):
