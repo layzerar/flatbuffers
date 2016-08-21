@@ -85,7 +85,7 @@ def status_msgs(*msgs):
 def run_setup(with_cext):
     setup_kwds = dict(
         name='flatbuffers',
-        version='1.2.0b',
+        version='1.2.0b1',
         license='Apache 2.0',
         author='FlatBuffers Contributors',
         author_email='me@rwinslow.com',
