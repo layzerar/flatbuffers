@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .compat import memoryview_type
+from .compat import PY26, memoryview_type
 
 
-def Get(packer_type, buf, head):
-    """ Get decodes a value at buf[head:] using `packer_type`. """
-    return packer_type.unpack_from(memoryview_type(buf), head)[0]
+if PY26:
+    def Get(packer_type, buf, head):
+        """ Get decodes a value at buf[head:] using `packer_type`. """
+        return packer_type.unpack_from(memoryview_type(buf), head)[0]
+else:
+    def Get(packer_type, buf, head):
+        """ Get decodes a value at buf[head:] using `packer_type`. """
+        return packer_type.unpack_from(buf, head)[0]
 
 
 def Write(packer_type, buf, head, n):
